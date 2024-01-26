@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Movie Booking App</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.24.0/axios.min.js"></script>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -101,7 +102,7 @@
 
 <body>
 
-  <h2>Movie Booking App localStorage</h2>
+  <h2>Movie Booking App crud</h2>
 
   <form id="bookingForm">
     <label for="name">Name:</label>
@@ -125,20 +126,18 @@
 
   <div id="totalBooked">Total Seats Booked: <span id="totalSeats">0</span></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
   <script>
     var totalSeatsBooked = 0;
-
-    // Function to get booked seats data from localStorage
-    function getBookedSeatsFromStorage() {
-      var bookedSeats = JSON.parse(localStorage.getItem('bookedSeats')) || [];
-      return bookedSeats;
-    }
+    var apiEndpoint = "https://crudcrud.com/api/f6cc83cc3436451c8939e4dbdb5401dd/bookedSeats";
 
     // Function to update the total seats booked
     function updateTotalSeats() {
-      totalSeatsBooked = getBookedSeatsFromStorage().length;
-      document.getElementById("totalSeats").textContent = totalSeatsBooked;
+      axios.get(apiEndpoint)
+        .then(response => {
+          totalSeatsBooked = response.data.length;
+          document.getElementById("totalSeats").textContent = totalSeatsBooked;
+        })
+        .catch(error => console.error('Error fetching booked seats:', error));
     }
 
     // Function to add a new booking
@@ -148,29 +147,34 @@
 
       if (name && seatNumber) {
         // Check if the seat number is already booked
-        var bookedSeats = getBookedSeatsFromStorage();
-        var seatExists = bookedSeats.some(entry => entry.seatNumber === seatNumber);
+        axios.get(apiEndpoint)
+          .then(response => {
+            var bookedSeats = response.data;
+            var seatExists = bookedSeats.some(entry => entry.seatNumber === seatNumber);
 
-        if (seatExists) {
-          document.getElementById("errorMessage").textContent = "This seat is already booked. Please choose another seat.";
-          return;
-        } else {
-          document.getElementById("errorMessage").textContent = "";
-        }
+            if (seatExists) {
+              document.getElementById("errorMessage").textContent = "This seat is already booked. Please choose another seat.";
+              return;
+            } else {
+              document.getElementById("errorMessage").textContent = "";
+            }
 
-        // Update the booked seats data
-        bookedSeats.push({ name: name, seatNumber: seatNumber });
-        localStorage.setItem('bookedSeats', JSON.stringify(bookedSeats));
+            // Update the booked seats data
+            axios.post(apiEndpoint, { name: name, seatNumber: seatNumber })
+              .then(() => {
+                // Update total seats booked
+                updateTotalSeats();
 
-        // Update total seats booked
-        updateTotalSeats();
+                // Render the booked seats
+                renderBookedSeats();
 
-        // Render the booked seats
-        renderBookedSeats();
-
-        // Clear input fields after booking
-        document.getElementById("name").value = "";
-        document.getElementById("seatNumber").value = "";
+                // Clear input fields after booking
+                document.getElementById("name").value = "";
+                document.getElementById("seatNumber").value = "";
+              })
+              .catch(error => console.error('Error adding booking:', error));
+          })
+          .catch(error => console.error('Error fetching booked seats:', error));
       } else {
         document.getElementById("errorMessage").textContent = "Please enter both name and seat number.";
       }
@@ -178,19 +182,23 @@
 
     // Function to render booked seats in the table
     function renderBookedSeats() {
-      var table = document.getElementById("bookedSeats");
-      table.innerHTML = '<tr><th>Name</th><th>Seat Number</th><th>Action</th></tr>';
+      axios.get(apiEndpoint)
+        .then(response => {
+          var bookedSeats = response.data;
+          var table = document.getElementById("bookedSeats");
+          table.innerHTML = '<tr><th>Name</th><th>Seat Number</th><th>Action</th></tr>';
 
-      var bookedSeats = getBookedSeatsFromStorage();
-      bookedSeats.forEach(entry => {
-        var row = table.insertRow(-1);
-        var cell1 = row.insertCell(0);
-        var cell2 = row.insertCell(1);
-        var cell3 = row.insertCell(2);
-        cell1.innerHTML = entry.name;
-        cell2.innerHTML = entry.seatNumber;
-        cell3.innerHTML = '<button class="action-button" onclick="editBooking(this)">Edit</button> <button class="action-button delete" onclick="deleteBooking(this)">Delete</button>';
-      });
+          bookedSeats.forEach(entry => {
+            var row = table.insertRow(-1);
+            var cell1 = row.insertCell(0);
+            var cell2 = row.insertCell(1);
+            var cell3 = row.insertCell(2);
+            cell1.innerHTML = entry.name;
+            cell2.innerHTML = entry.seatNumber;
+            cell3.innerHTML = '<button class="action-button" onclick="editBooking(this)">Edit</button> <button class="action-button delete" onclick="deleteBooking(this)">Delete</button>';
+          });
+        })
+        .catch(error => console.error('Error fetching booked seats:', error));
     }
 
     // Function to edit a booking
@@ -203,12 +211,12 @@
       row.parentNode.removeChild(row);
 
       // Remove the entry from booked seats data
-      var bookedSeats = getBookedSeatsFromStorage();
-      var updatedSeats = bookedSeats.filter(entry => !(entry.name === name && entry.seatNumber === seatNumber));
-      localStorage.setItem('bookedSeats', JSON.stringify(updatedSeats));
-
-      // Update total seats booked
-      updateTotalSeats();
+      axios.delete(`${apiEndpoint}/${seatNumber}`)
+        .then(() => {
+          // Update total seats booked
+          updateTotalSeats();
+        })
+        .catch(error => console.error('Error deleting booking:', error));
     }
 
     // Function to delete a booking
@@ -217,14 +225,13 @@
       row.parentNode.removeChild(row);
 
       // Remove the entry from booked seats data
-      var name = row.cells[0].innerHTML;
       var seatNumber = row.cells[1].innerHTML;
-      var bookedSeats = getBookedSeatsFromStorage();
-      var updatedSeats = bookedSeats.filter(entry => !(entry.name === name && entry.seatNumber === seatNumber));
-      localStorage.setItem('bookedSeats', JSON.stringify(updatedSeats));
-
-      // Update total seats booked
-      updateTotalSeats();
+      axios.delete(`${apiEndpoint}/${seatNumber}`)
+        .then(() => {
+          // Update total seats booked
+          updateTotalSeats();
+        })
+        .catch(error => console.error('Error deleting booking:', error));
     }
 
     // Initial rendering of booked seats
