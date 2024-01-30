@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Movie Booking</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f4f4f4;
+      margin: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h2 {
+      color: #333;
+    }
+
+    form {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    label {
+      margin-top: 10px;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #4caf50;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .error {
+      color: red;
+      margin-top: 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f2f2f2;
+    }
+
+    .action-buttons {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    button.action {
+      width: 48%;
+      margin-top: 5px;
+      padding: 5px;
+      background-color: #4285f4;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button.action:hover {
+      background-color: #2a57a8;
+    }
+
+    p {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Movie Booking app</h2>
+
+  <form id="bookingForm">
+    <label for="name">Name:</label>
+    <input type="text" id="name" name="name" required>
+    <label for="seatNumber">Seat Number:</label>
+    <input type="text" id="seatNumber" name="seatNumber" required>
+    <span id="duplicateError" class="error"></span>
+    <button type="button" onclick="submitForm()">Book Seat</button>
+  </form>
+
+  <h2>Booked Seats</h2>
+  <table id="bookingTable">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Seat Number</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="bookingTableBody">
+      <!-- Display booked seats here -->
+    </tbody>
+  </table>
+
+  <div class="action-buttons">
+    <button class="action" type="button" onclick="editBooking()">Edit</button>
+    <button class="action" type="button" onclick="deleteBooking()">Cancel</button>
+  </div>
+
+  <p>Total Booked Seats: <span id="totalBookings">0</span></p>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.24.0/axios.min.js"></script>
+
+  <script>
+    let bookings = [];
+    let selectedRowIndex = -1;
+
+    // Base URL for the CRUD API
+    const apiUrl = "https://crudcrud.com/api/188091d89f4b4a698e8711658542a60e/bookings";
+
+    // Function to fetch and display bookings
+    async function fetchBookings() {
+      try {
+        const response = await axios.get(apiUrl);
+        bookings = response.data;
+        displayBookings();
+        updateTotalBookings();
+      } catch (error) {
+        console.error("Error fetching bookings:", error);
+      }
+    }
+
+    // Function to create or update a booking
+    async function submitForm() {
+      const name = document.getElementById('name').value;
+      const seatNumber = document.getElementById('seatNumber').value;
+
+      if (name && seatNumber) {
+        const booking = { name, seatNumber };
+
+        // Check if the seat is already booked
+        const isSeatBooked = bookings.some(booking => booking.seatNumber === seatNumber);
+
+        if (!isSeatBooked) {
+          try {
+            if (selectedRowIndex === -1) {
+              // Create new booking
+              await axios.post(apiUrl, booking);
+            } else {
+              // Update existing booking
+              await axios.put(`${apiUrl}/${bookings[selectedRowIndex]._id}`, booking);
+              selectedRowIndex = -1;
+            }
+
+            // Refresh booking data after creating or updating
+            await fetchBookings();
+            clearForm();
+          } catch (error) {
+            console.error("Error submitting form:", error);
+          }
+        } else {
+          alert("Error: This seat is already booked. Please choose another seat.");
+        }
+      } else {
+        alert("Please fill in both name and seat number fields.");
+      }
+    }
+
+    // Function to delete a booking
+    async function deleteBooking() {
+      if (selectedRowIndex !== -1) {
+        try {
+          await axios.delete(`${apiUrl}/${bookings[selectedRowIndex]._id}`);
+          selectedRowIndex = -1;
+          // Refresh booking data after deleting
+          await fetchBookings();
+          clearForm();
+        } catch (error) {
+          console.error("Error deleting booking:", error);
+        }
+      } else {
+        alert("Please select a booking to delete.");
+      }
+    }
+
+    // Function to display bookings in the table
+    function displayBookings() {
+      const tableBody = document.getElementById('bookingTableBody');
+      tableBody.innerHTML = '';
+
+      bookings.forEach((booking, index) => {
+        const row = tableBody.insertRow();
+        row.insertCell(0).textContent = booking.name;
+        row.insertCell(1).textContent = booking.seatNumber;
+
+        const editCell = row.insertCell(2);
+        editCell.innerHTML = `<button class="action" type="button" onclick="editBooking(${index})">Edit</button>`;
+      });
+    }
+
+    // Function to clear the form
+    function clearForm() {
+      document.getElementById('name').value = '';
+      document.getElementById('seatNumber').value = '';
+    }
+
+    // Function to edit a booking
+    function editBooking(index) {
+      selectedRowIndex = index;
+      const booking = bookings[index];
+      document.getElementById('name').value = booking.name;
+      document.getElementById('seatNumber').value = booking.seatNumber;
+    }
+
+    // Function to update the total number of bookings
+    function updateTotalBookings() {
+      document.getElementById('totalBookings').textContent = bookings.length;
+    }
+
+    // Initial fetch of bookings when the page loads
+    fetchBookings();
+  </script>
+</body>
+
+</html>
